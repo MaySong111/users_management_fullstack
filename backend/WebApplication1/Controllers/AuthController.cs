@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using WebApplication1.Core.Constants;
 using WebApplication1.Core.Dtos;
 using WebApplication1.Core.Dtos.Auth;
-
 using WebApplication1.Core.Services.Auth;
+
 
 namespace WebApplication1.Controllers
 {
@@ -29,8 +29,12 @@ namespace WebApplication1.Controllers
             return Ok(result);
         }
 
+
+        // Owner can change everything
+        //  Admin can change just User to Manager
+        // Manager/User roles cannot change any one's role
         [HttpPost("update-role")]
-        [Authorize(Roles = StaticUserRoles.OwnerAdmin)]
+         Roles = StaticUserRoles.OwnerAdmin)]
         // 说ClaimsPrincipal User我是操作者, 如我是it管理员,我现在要更改某个员工的权限了--那我到底要改谁的, 改成什么样(这是UpdateRoleDto dto里的信息-操作者要做什么)
         // 要改谁？dto.UserName (这是你想要操作的目标用户的用户名)改成什么样？dto.NewRole (这是你想要设置的新角色)--所以这就是为什么UpdateRoleDto 有这两个属性
         public async Task<ActionResult<GeneralServiceResponseDto>> UpdateRole([FromBody] UpdateRoleDto dto)

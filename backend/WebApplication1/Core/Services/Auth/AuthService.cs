@@ -22,12 +22,12 @@ namespace WebApplication1.Core.Services.Auth
         public async Task<IEnumerable<UserInfoDto>> GetUsersListAsync()
         {
             var allUsers = await _userManager.Users.ToListAsync();
-            List<UserInfoDto> userDtos = new List<UserInfoDto>();
+            var userDtos = new List<UserInfoDto>();
 
             foreach (var user in allUsers)
             {
                 var userRoles = await _userManager.GetRolesAsync(user);
-                var userRole = userRoles.FirstOrDefault();
+                var userRole = userRoles.FirstOrDefault().ToUpper();
 
                 var newDto = new UserInfoDto
                 {
@@ -60,7 +60,7 @@ namespace WebApplication1.Core.Services.Auth
             }
 
             var userRoles = await _userManager.GetRolesAsync(user);
-            var userRole = userRoles.FirstOrDefault() ?? StaticUserRoles.USER;
+            var userRole = userRoles.FirstOrDefault()?.ToUpper() ?? StaticUserRoles.USER;
 
             var userDto = new UserInfoDto
             {
@@ -133,8 +133,14 @@ namespace WebApplication1.Core.Services.Auth
             await _logService.SaveNewLogAsync(dto.UserName, "New login");
 
             var token = await tokenCreator.GenerateJWTToken(user);
+            // GetRolesAsync返回的是Roles表的的Name,不是NormalizedName,但是我的Roles表新建Name都是小写的,所以要注意大小写的问题!!!!!!!
+            // 导致的大问题 FirstOrDefault这就是小写的了-那生成token的时候用的就是小写的了--
+            // 然后看解析token出来的 也是小写-- 那对于其他的控制器只要是用Authorize的时候,就会因为大小写不匹配而导致授权失败!!!!!! 
+            // ⚠️: 这就是一开始手动生成roles表的时候 忘记大小写的问题了!!!!!!!!!! 那个时候根本没注意这个问题,后来发现token解析出来的角色是小写的,然后就去看数据库发现name字段是小写的,然后就知道是这个问题了
             var userRoles = await _userManager.GetRolesAsync(user);      // 因为我应用就是一个用户就一个角色,但是identity获取中间表的role的时候就只有roles的方法--所以我才用下面取出来第一个,就是转换成字符串(列表不能直接转换成单个字符串，需要先取元素，再处理可能为 null 的情况,所以才用first这个方法)
-            string userRole = userRoles.FirstOrDefault() ?? StaticUserRoles.USER;
+            string userRole = userRoles.FirstOrDefault().ToUpper() ?? StaticUserRoles.USER;
+            Console.WriteLine("Current user role,uppercase or lowercase: " + userRole);
+
             // 这里没用automapper,是因为知道每个字段怎么来的, 测试起来也清楚
             var userInfo = new UserInfoDto
             {
@@ -159,8 +165,8 @@ namespace WebApplication1.Core.Services.Auth
 
         public async Task<GeneralServiceResponseDto> UpdateRoleAsync(UpdateRoleDto dto, ClaimsPrincipal User)
         {
-            // 1 find user with username.  拿到目标用户信息,我要改谁的角色
-            var user = await _userManager.FindByNameAsync(dto.UserName);
+            // 1 find user  with username.  拿到目标用户信息,我要改谁的角色
+            var user = await _userManager.FindByNameAsync(dto.UserName); // ApplicationUser not username
             // 2 this username not exists,验证目标用户存在
             if (user == null)
             {
@@ -170,14 +176,17 @@ namespace WebApplication1.Core.Services.Auth
             }
             // 3 just the owner and admin can update roles---这个是操作者要修改的用户的 现在现在数据库中存储的身份有哪些
             var userRoles = await _userManager.GetRolesAsync(user);
-            var userRole = userRoles.FirstOrDefault() ?? StaticUserRoles.USER;
+            var userRole = userRoles.FirstOrDefault().ToUpper() ?? StaticUserRoles.USER;
 
             //4. 检查当前登录用户,是不是admin ---User.IsInRole("ADMIN"),结果是true/false
             // 执行角色修改
             //     如果管理员要把某个用户从 USER 改成 MANAGER，就允许。
             //     如果普通用户尝试改角色 → 拒绝
             // 下面这段 非常乱, 一定要分清楚, 操作者, 目标者 (操作者---更新目标者的角色身份信息 !!!!!!!!!!!!!)
-            // step1操作者检查: User是操作者, 也就是当前登录的人, 看这个执行修改的人, 先要判断是不是有权限可以 更改身份 查操作者的权限!!!
+            // step1操作者检查: User是操作者, 也就是当前登录的人, 看这个执行修改的人, 先要判断是不是有权限可以 更改身份 查操作者的权限!!
+
+            // double check: make dto.NewRole uppercase
+            dto.NewRole = dto.NewRole.ToUpper();
             if (User.IsInRole(StaticUserRoles.ADMIN))
             {
                 // step2新角色检查: 判断 这个要更改的 目标者的--新角色限制检查: 限制 ADMIN 只能将用户的角色设置为普通角色（USER 或 MANAGER）。

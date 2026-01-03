@@ -1,10 +1,13 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using WebApplication1.Core.Constants;
 using WebApplication1.Core.Dtos;
 using WebApplication1.Core.Services.Messages;
 
 namespace WebApplication1.Controllers
 {
+    [Authorize(AuthenticationSchemes = "Bearer")]
     [ApiController]
     [Route("api/[controller]")]
     public class MessagesController(IMessageService _messageService) : ControllerBase
@@ -32,6 +35,7 @@ namespace WebApplication1.Controllers
 
 
         [HttpGet("mine")]
+        [Authorize(Roles = StaticUserRoles.OwnerAdmin)]
         public async Task<ActionResult<GetMessageDto>> GetMyMessages(ClaimsPrincipal user)
         {
             var messages = await _messageService.GetMyMessagesAsync(user);

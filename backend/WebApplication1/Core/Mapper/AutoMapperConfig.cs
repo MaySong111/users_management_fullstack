@@ -8,7 +8,7 @@ namespace WebApplication1.Core.Mapper
     {
         public AutoMapperConfig()
         {
-            CreateMap<GetLogDto, Log>();
+            CreateMap<Log, GetLogDto>();
             CreateMap<RegisterDto, ApplicationUser>();
             CreateMap<Message, GetMessageDto>();
         }

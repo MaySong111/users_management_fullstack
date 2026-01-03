@@ -6,9 +6,9 @@ namespace WebApplication1.Core.Dtos
     {
         [Required(ErrorMessage = "UserName is required")]
         public string UserName { get; set; }
-        // admin,manager,user 
+        // admin,manager,user ---and must be uppercase
         public string NewRole { get; set; }
     }
 }
 
- 
+

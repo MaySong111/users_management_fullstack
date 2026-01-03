@@ -21,8 +21,7 @@ namespace WebApplication1.Core.Repositories
 
         public async Task<string> GenerateJWTToken(ApplicationUser user)
         {
-            var userRoles = await userManager.GetRolesAsync(user);
-            var userRole = userRoles.FirstOrDefault() ?? StaticUserRoles.USER;
+            
             var authClaims = new List<Claim>
             {
                  new Claim(ClaimTypes.Name,user.UserName),
@@ -45,7 +44,7 @@ namespace WebApplication1.Core.Repositories
                 issuer: configuration["Jwt:Issuer"],
                 audience: configuration["Jwt:Audience"],
                 notBefore: DateTime.Now,
-                expires: DateTime.Now.AddMinutes(15),
+                expires: DateTime.Now.AddHours(1),
                 signingCredentials: singingCredentials,
                 claims: authClaims
             );
