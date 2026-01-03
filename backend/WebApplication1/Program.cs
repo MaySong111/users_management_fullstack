@@ -8,6 +8,8 @@ using WebApplication1.Core.Entities;
 using WebApplication1.Core.Interfaces;
 using WebApplication1.Core.Mapper;
 using WebApplication1.Core.Repositories;
+using WebApplication1.Core.Services.Auth;
+using WebApplication1.Core.Services.Messages;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,8 +52,10 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddAutoMapper(typeof(AutoMapperConfig));
-builder.Services.AddScoped<ILogService, LogService>();
 builder.Services.AddScoped<TokenCreator>();
+builder.Services.AddScoped<ILogService, LogService>();
+builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 

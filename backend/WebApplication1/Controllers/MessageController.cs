@@ -1,77 +1,41 @@
-using AutoMapper;
-using Microsoft.AspNetCore.Identity;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using WebApplication1.Core.AppDbContext;
 using WebApplication1.Core.Dtos;
-using WebApplication1.Core.Entities;
-using WebApplication1.Core.Interfaces;
+using WebApplication1.Core.Services.Messages;
 
 namespace WebApplication1.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class MessagesController : ControllerBase
+    public class MessagesController(IMessageService _messageService) : ControllerBase
     {
-        private readonly ApplicationDbContext context;
-        private readonly UserManager<ApplicationDbContext> userManager;
-        private readonly ILogService logService;
-        private readonly IMapper mapper;
-
-        public MessagesController(ApplicationDbContext context, UserManager<ApplicationDbContext> userManager, ILogService logService,IMapper mapper)
-        {
-            this.context = context;
-            this.userManager = userManager;
-            this.logService = logService;
-            this.mapper = mapper;
-        }
 
         [HttpPost("create")]
-        public async Task<IActionResult> CreateNewMessage(CreateMessageDto dto)
+        public async Task<ActionResult> CreateNewMessage(CreateMessageDto dto)
         {
-            // 这个判断是一个安全验证, 为了防止用户给自己发消息 ---如果当前登录者用户名等于接收者的用户名,那说明用户想给自己发消息，这通常是被禁止的
-            if (User.Identity.Name == dto.ReceiverUserName)
+
+            var result = await _messageService.CreateNewMessageAsync(dto, User);
+            if (!result.IsSucceed)
             {
-                return BadRequest(new { message = "Sender and receiver cannot be same,you cannot send message to yourself.", IsSucceed = false });
+                return BadRequest(result.Message);
             }
-
-            var isReceiverUserNameValid = await userManager.FindByNameAsync(dto.ReceiverUserName);
-            if (isReceiverUserNameValid == null)
-            {
-                return BadRequest(new { message = "Receiver UserName is invalid.", IsSucceed = false });
-            }
-
-            var newMessage = new Message
-            {
-                SenderUserName = User.Identity.Name,
-                ReceiverUserName = dto.ReceiverUserName,
-                Text = dto.Text
-            };
-
-            context.Messages.Add(newMessage);
-            await context.SaveChangesAsync();
-            var newLog = new GetLogDto { UserName = User.Identity.Name, Description = "Send message" };
-            await logService.SaveNewLog(newLog);
-            return Ok(new { message = "Message saved successfully.", IsSucceed = true });
+            return Ok(result.Message);
         }
 
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<GetMessageDto>>> GetMessages()
         {
-            var allMessages = await context.Messages.OrderByDescending(m => m.CreatedAt).ToListAsync();
-            var convertedAllMessages  = mapper.Map<List<GetMessageDto>>(allMessages);
-            return Ok(convertedAllMessages);
+            var messages = await _messageService.GetMessagesAsync();
+            return Ok(messages);
         }
 
 
         [HttpGet("mine")]
-        public async Task<ActionResult<GetMessageDto>> GetMyMessages()
+        public async Task<ActionResult<GetMessageDto>> GetMyMessages(ClaimsPrincipal user)
         {
-            var loggedUser = User.Identity.Name;
-            var allMyMessages = await context.Messages.Where(m => m.SenderUserName == loggedUser || m.ReceiverUserName == loggedUser).OrderByDescending(m => m.CreatedAt).ToListAsync();
-            var convertedAllMyMessages  = mapper.Map<List<GetMessageDto>>(allMyMessages);
-            return Ok(convertedAllMyMessages);
+            var messages = await _messageService.GetMyMessagesAsync(user);
+            return Ok(messages);
         }
     }
 
